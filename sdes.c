@@ -11,6 +11,7 @@ unsigned char *hash(unsigned char *str,unsigned char *key)
         while (c = *str++)
             hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 	bit b;
+	key[0]=0;key[1]=0;
 	for(c=0;c<10;c++)
 	{
 		b.bit = ( hash >> sel[c] ) & 0x01;
@@ -31,14 +32,15 @@ unsigned char IP(unsigned char in) // Initial Permutation
 	{
 		b.bit = (in >> init_perm[i]) & 0x01;
 		out |= ( b.bit  << i );
-		printf("%d", ( (in >> 7-i) & 0x01) ); // print reversed in
+		//printf("%d", ( (in >> 7-i) & 0x01) ); // print reversed in
 	}
-	printf(" -> ");
+	/*printf(" -> ");
 	for(i=7;i>=0;i--)
 	{
 		printf("%d", ( (out >> i) & 0x01) ); // print reversed out
 	}
 	printf(" IP: %d -> %d ",in,out);
+	printf("\n");*/
 	return out;
 }
 unsigned char IP_1(unsigned char in)
@@ -51,14 +53,15 @@ unsigned char IP_1(unsigned char in)
 	{
 		b.bit = (in >> rev_init_perm[i]) & 0x01;
 		out |= ( b.bit  << i );
-		printf("%d", ((in >> 7-i) & 0x01)); // print reversed in
+		//printf("%d", ((in >> 7-i) & 0x01)); // print reversed in
 	}
-	printf(" -> ");
+	/*printf(" -> ");
 	for(i=7;i>=0;i--)
 	{
 		printf("%d", ((out >> i) & 0x01));// print reversed out
 	}
 	printf(" IP-1: %d -> %d ",in,out);
+	printf("\n");*/
 	return out;
 	
 }
@@ -151,7 +154,7 @@ unsigned char P8(unsigned char key10[2],unsigned char *key8)
 int welcome(int argc,char *argv[],FILE *infd,FILE *outfd)
 {
 
-	if(argc!=3)
+	if(argc > 4 || argc < 3 )
 	{
 		printf("Usage %s infile outfile \n",argv[0]);
 		return 1;
@@ -204,6 +207,85 @@ void produce_subkeys(unsigned char *pwd,unsigned char *subkey1,unsigned char *su
 	printf("\n");
 	P8(key10ss,&(*subkey2)); // Permutation8 over 10-bit double left-shifted key to produce subkey2
 }
+unsigned char F(unsigned char R,unsigned char skey)
+{
+	int i;
+	int EP[]={3,0,1,2,1,2,3,0};// expansion of R
+	unsigned char ep=0,xored=0;	
+	for(i=0;i<8;i++)
+	{
+		ep |= ( (R >> EP[i]) & 0x01) << i;
+	}
+	xored= ep ^ skey;
+	int sbox0[4][4]={ {1,0,3,2}, {3,2,1,0}, {0,2,1,3}, {3,1,3,2} };
+	int sbox1[4][4]={ {0,1,2,3}, {2,0,1,3}, {3,0,1,0}, {2,1,0,3} };
+	unsigned int row,col;
+	bit row0,row1,col0,col1;
+	unsigned char bits4=0;
+	// S-Box 0
+	// sbox0[row0row1][col0col1]
+	row=0; // reset bits to 0
+	//row0= (xored & (1 << 0)) >> 0;
+	//row1= (xored >> 3) & 0x01;
+	row |= ( (xored & (1 << 0)) >> 0) << 1 ;
+	row |= ( (xored & (1 << 3)) >> 3) << 0 ;
+	col=0;
+	//col0 = (xored >> 1) & 0x01;
+	//col1 = (xored >> 2) & 0x01;
+	col |= ( (xored & (1 << 1)) >> 1) << 1 ;
+	col |= ( (xored & (1 << 2)) >> 2) << 0 ;
+//	bits4 |= ( sbox0[row,col] >> 2) & 0x02 ; //set first 2 bits of bits4;
+	bits4 |= ( (sbox0[row][col] & (1 << 1)) >> 1) << 1;
+	bits4 |= ( (sbox0[row][col] & (1 << 0)) >> 0) << 0;
+	// S-Box 1
+	row=0;
+	//row0= (xored >> 4) & 0x01;
+	//row1= (xored >> 7) & 0x01;
+	row |= ( (xored & (1 << 4)) >> 4) << 1 ;
+        row |= ( (xored & (1 << 7)) >> 7) << 0 ;
+	col=0;
+	//col0= (xored >> 5) & 0x01;
+	//col1= (xored >> 6) & 0x01;
+	col |= ( (xored & (1 << 5)) >> 5) << 1 ;
+        col |= ( (xored & (1 << 6)) >> 6) << 0 ;
+	bits4 |= (( sbox1[row][col] & (1 << 1)) >> 1) << 3 ; 
+	bits4 |= (( sbox1[row][col] & (1 << 0)) >> 0) << 2 ;
+	printf("bits4: %d\n",bits4);
+	unsigned char out=0;
+	int p4[]={2,4,3,1};
+	for (i=0;i<4;i++)
+	{
+		out |= ( ( bits4  >> p4[i]) & 0x01 ) << i;
+	}
+	printf("out: %d\n",out);	
+	return out;
+}
+void split(unsigned char buff,unsigned char *L,unsigned char *R)
+{
+	*L=0;*R=0; // reset bits
+	int i;
+	unsigned char l=0,r=0;
+	for(i=0;i<4;i++)
+	{
+		l |= (( buff >> i) & 0x01) << i;
+		r |= (( buff >> i+4) & 0x01) << i;
+	}
+	*L=l;*R=r;
+	printf("L: %d R:%d\n",*L,*R);
+}
+unsigned char join(unsigned char left,unsigned char right)
+{
+	int i;
+	unsigned char joined=0;
+        for(i=0;i<4;i++)
+        {
+                joined |= (( left >> i) & 0x01) << i;
+                joined |= (( right >> i) & 0x01) << (i+4);
+        }
+	return joined;
+	printf("joined: %c\n",joined);
+
+}
 int main(int argc,char *argv[])
 {
 	
@@ -211,7 +293,7 @@ int main(int argc,char *argv[])
 	FILE *outfd=fopen(argv[2],"wb");
 	if( welcome(argc,argv,infd,outfd) ) return 1;
 	unsigned char pwd[30]; // 30 char max password and 8-bit key (declaration)
-	unsigned char subkey1=0,subkey2=0; // 10-bit key, 2 8-bit subkeys 
+	unsigned char subkey1=0,subkey2=0; // 10-bit key, 2 8-bit subkeys
 	printf("Password: ");
 	if( fgets(pwd,30,stdin) == NULL)
 	{
@@ -219,21 +301,78 @@ int main(int argc,char *argv[])
 		return 3;
 	}
 	produce_subkeys(pwd,&subkey1,&subkey2);
+	printf("skey1:%d skey2:%d\n",subkey1,subkey2);
 	unsigned char buff;
 	fseek(infd,0,SEEK_END);
 	long size=ftell(infd);
 	printf("size: %ld\n",size);
 	fseek(infd,SEEK_SET,0);
 	int j;
-	for(j=0;j<size;j++)
-	{
+if(argc==4){
+	unsigned char left=0,right=0,temp=0;
+	unsigned char iped=IP(buff);
+	fread(&buff,1,1,infd);
+	split(iped,&left,&right);
+	//printf("l: %d r: %d\n",left,right);
+	for(j=0;j<size-1;j++)
+	{		
+		temp=F(right,subkey1) ^ left; // alter first 4-bits starting from LSB
+		left=temp;	
+		temp=F(left,subkey2) ^ right;
+		right=temp;
+		unsigned char joined=0;
+		joined=join(left,right);
+		unsigned char data=0;
+		data=IP_1(joined);
+//		printf("%c ",data);
+		fwrite(&data,1,1,outfd);
+		iped=0;	iped=IP(buff);
 		fread(&buff,1,1,infd);
-		unsigned char iped=IP(buff);
-		printf(" ");
-		IP_1(iped);
-		printf(" %c",buff);
-		printf("\n");
+		split(iped,&left,&right);//printf("l: %d r: %d\n",left,right);
+		
 	}
+	left=F(right,subkey1) ^ left; // alter first 4-bits starting from LSB	
+	right=F(left,subkey2) ^ right;
+	unsigned char joined=join(left,right);
+	unsigned char data=IP_1(joined);
+//	printf("%c",data);
+	fwrite(&data,1,1,outfd);
+	printf("\n");
+}
+else
+{
+	unsigned char left=0,right=0,temp=0;
+        unsigned char iped=IP(buff);
+        fread(&buff,1,1,infd);
+        split(iped,&left,&right);
+        //printf("l: %d r: %d\n",left,right);
+        for(j=0;j<size-1;j++)
+        {
+                temp=F(right,subkey2) ^ left; // alter first 4-bits starting from LSB
+                left=temp;
+                temp=F(left,subkey1) ^ right;
+                right=temp;
+                unsigned char joined=0;
+                joined=join(left,right);
+                unsigned char data=0;
+                data=IP_1(joined);
+//              printf("%c ",data);
+                fwrite(&data,1,1,outfd);
+                iped=0; iped=IP(buff);
+                fread(&buff,1,1,infd);
+                split(iped,&left,&right);//printf("l: %d r: %d\n",left,right);
+
+        }
+        left=F(right,subkey2) ^ left; // alter first 4-bits starting from LSB   
+        right=F(left,subkey1) ^ right;
+        unsigned char joined=join(left,right);
+        unsigned char data=IP_1(joined);
+//      printf("%c",data);
+        fwrite(&data,1,1,outfd);
+        printf("\n");
+
+	printf("bye!\n");
+}
 	fclose(infd);
 	fclose(outfd);	
 	return 0;

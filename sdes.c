@@ -148,14 +148,14 @@ unsigned char P8(unsigned char key10[2],unsigned char *key8)
 	printf("\n");
 	return *key8;	
 }
-int main(int argc,char *argv[])
+int welcome(int argc,char *argv[],FILE *infd,FILE *outfd)
 {
+
 	if(argc!=3)
 	{
 		printf("Usage %s infile outfile \n",argv[0]);
-		return -1;
+		return 1;
 	}
-	FILE *infd=fopen(argv[1],"rb");
 	if(infd == NULL)
 	{
 		printf("no such file: %s\n",argv[1]);
@@ -165,57 +165,77 @@ int main(int argc,char *argv[])
 	{
 		printf("file %s opened with fd: %x \n",argv[1],infd);
 	}
-	FILE *outfd=fopen(argv[2],"wb");
-	if(outfd== NULL)
+	if(outfd == NULL)
 	{
+		fclose(infd);
 		printf("Failed to create file: %s\n",argv[2]);
-		return 2;	
+		return 1;	
 	}
-	unsigned char pwd[30],key[2]; // 30 char max password and 8-bit key (declaration)
-	printf("Password: ");
-	if( fgets(pwd,30,stdin) == NULL)
-	{
-		printf("Bad password given\n");
-		return 3;
-	}
-	hash(pwd,key);
-	unsigned char key10[2],subkey1=0,subkey2=0;
-	P10(key,key10);
-	unsigned char key10s[2],key10ss[2];
-	LS(key10,key10s);
-	int i,j;
-	printf("shifted key: %d%d",( (key10s[1] >> 1 ) & 0x01),( (key10s[1] >> 0) & 0x01));
+	return 0;
+}
+void produce_subkeys(unsigned char *pwd,unsigned char *subkey1,unsigned char *subkey2)
+{
+	unsigned char key[2],key10[2]; //10-bit main key produced by hashed pwd, 10-bit produced by Permutation10
+	unsigned char key10s[2],key10ss[2];// 2 10-bit Left-Shifted keys
+
+	hash(pwd,key); // Hash given password to produce 10-bit key
+	P10(key,key10); // Permutation10 over 10-bit key produced by hashed password
+
+	// Produce subkey 1
+	LS(key10,key10s); // Left-Shift 10-bit key
+	int i,j; 
+	printf("P10 key shifted: %d%d",( (key10s[1] >> 1 ) & 0x01),( (key10s[1] >> 0) & 0x01)); // Print shifted key
         for(i=0;i<8;i++) 
 	{
 		if(i==3) printf(" ");
 		printf("%d",( (key10s[0] >> (7-i)) & 0x01));
 	}
 	printf("\n");
-	P8(key10s,&subkey1);
-	LS(key10s,key10ss);
-	printf("shifted key: %d%d",( (key10ss[1] >> 1 ) & 0x01),( (key10ss[1] >> 0) & 0x01));
+	P8(key10s,&(*subkey1)); // Permutation8 over 10-bit left-shifted key to procude subkey1 
+
+	// Produce subkey 2
+	LS(key10s,key10ss); // Left-Shift 10-bit key once more
+	printf("P10 key shifted: %d%d",( (key10ss[1] >> 1 ) & 0x01),( (key10ss[1] >> 0) & 0x01)); // Printf shifted key
         for(i=0;i<8;i++) 
 	{
 		if(i==3) printf(" ");
 		printf("%d",( (key10ss[0] >> (7-i)) & 0x01));
 	}
 	printf("\n");
-	P8(key10ss,&subkey2);
+	P8(key10ss,&(*subkey2)); // Permutation8 over 10-bit double left-shifted key to produce subkey2
+}
+int main(int argc,char *argv[])
+{
+	
+	FILE *infd=fopen(argv[1],"rb");
+	FILE *outfd=fopen(argv[2],"wb");
+	if( welcome(argc,argv,infd,outfd) ) return 1;
+	unsigned char pwd[30]; // 30 char max password and 8-bit key (declaration)
+	unsigned char subkey1=0,subkey2=0; // 10-bit key, 2 8-bit subkeys 
+	printf("Password: ");
+	if( fgets(pwd,30,stdin) == NULL)
+	{
+		printf("Bad password given\n");
+		return 3;
+	}
+	produce_subkeys(pwd,&subkey1,&subkey2);
 	unsigned char buff;
 	fseek(infd,0,SEEK_END);
 	long size=ftell(infd);
 	printf("size: %ld\n",size);
 	fseek(infd,SEEK_SET,0);
+	int j;
 	for(j=0;j<size;j++)
 	{
-	fread(&buff,1,1,infd);
-	unsigned char iped=IP(buff);
-	printf(" ");
-	IP_1(iped);
-	printf(" %c",buff);
-	printf("\n");
+		fread(&buff,1,1,infd);
+		unsigned char iped=IP(buff);
+		printf(" ");
+		IP_1(iped);
+		printf(" %c",buff);
+		printf("\n");
 	}
-	fclose(infd);	
+	fclose(infd);
+	fclose(outfd);	
 	return 0;
 }
 

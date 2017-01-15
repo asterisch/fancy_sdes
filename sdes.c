@@ -24,7 +24,7 @@ unsigned char *hash(unsigned char *str,unsigned char *key)
 unsigned char IP(unsigned char in) // Initial Permutation
 {
 	int init_perm[]={ 1,5,2,0,3,7,4,6 };
-	unsigned char out;
+	unsigned char out=0;
 	int i;
 	bit b;
 	for(i=0;i<8;i++) // LSB is bit 0
@@ -44,7 +44,7 @@ unsigned char IP(unsigned char in) // Initial Permutation
 unsigned char IP_1(unsigned char in)
 {
 	int rev_init_perm[]={ 3,0,2,4,6,1,7,5 }; 
-	unsigned char out;
+	unsigned char out=0;
 	int i;
 	bit b;
 	for(i=7;i>=0;i--)
@@ -62,37 +62,85 @@ unsigned char IP_1(unsigned char in)
 	return out;
 	
 }
-void P10(unsigned char *keyin,unsigned char *keyout)
+void P10(unsigned char keyin[2],unsigned char keyout[2])
 {
 	int p10[]={2,4,1,6,3,9,0,8,7,5};
 	int i;
-	bit b;
-	for(i=0;i<10;i++)
+	bit b,b1;
+	unsigned char keyin0=keyin[0],keyin1=keyin[1];
+	unsigned char keyout0=0,keyout1=0;
+	printf("Hashed key:\n\t");
+	for(i=0;i<10;i++) 
 	{
-		if(p10[i]<8)
+		if(p10[i]<8)    b1.bit = ( ( keyin0 >> p10[i]   ) & 0x01 );
+                else            b1.bit = ( ( keyin1 >> (p10[i]%8) ) & 0x01);
+		if(i<8) 
 		{
-			b.bit = (keyin[0] >> p10[i]) & 0x01;
+			
+			b.bit=( (keyin0 >> i) & 0x01);
+			keyout0 |= ( b1.bit << i );
 		}
-		else
+		else 
 		{
-			b.bit = (keyin[1] >> (p10[i]%8) ) & 0x01;
+			
+			b.bit=( (keyin1 >> (i%8) ) & 0x01);
+			keyout1 |= ( b1.bit << (i%8) );
 		}
-		if(i<8)
-		{
-			keyout[0] |= ( b.bit << i);
-		}
-		else
-		{
-			keyout[1] |= (b.bit << i%8);
-		}
+		printf("%d -> %d\n\t",b.bit,b1.bit);
 	}
-	printf("Hashed key: ");
-	printf("%d%d",( (keyin[1] >> 1 ) & 0x01),( (keyin[1] >> 0) & 0x01));
-	for(i=0;i<8;i++) printf("%d",( (keyin[0] >> (7-i)) & 0x01));
-	printf("\nP10key: ");
-	printf("%d%d",( (keyout[1] >> 1 ) & 0x01),( (keyout[1] >> 0) & 0x01));
-	for(i=0;i<8;i++) printf("%d",( (keyout[0] >> (7-i)) & 0x01));
+	printf("\nP10:");
+	b.bit = (keyout1 >> 0  ) & 0x01;
+	b1.bit = (keyout1 >> 1) & 0x01;
+	printf("%d%d",b1.bit,b.bit);
+	for(i=7;i>=0;i--)
+	{
+		b.bit= ( (keyout0 >> i) & 0x01) ;
+		printf("%d",b.bit);
+	}
 	printf("\n");
+	keyout[0]=keyout0;
+	keyout[1]=keyout1;
+}
+unsigned char *LS(unsigned char key10[2],unsigned char key_shifted[2])
+{
+	int i;
+	bit b,msb;
+	unsigned char key100=key10[0],key101=key10[1],key_shifted0=0,key_shifted1=0;
+	msb.bit = ( (key100 >> 4) & 0x01);
+	// 1st half from lsb
+	for(i=4;i>=1;i--)
+	{
+		b.bit = ((key100 >> (i-1)) & 0x01);
+		key_shifted0 |= ( b.bit << i );
+	}
+	key_shifted0 |= (msb.bit << 0) ;
+	// 2nd half (to msb)
+	bit b1;
+	b.bit= ((key100 >> 7) & 0x01) ;
+	msb.bit= ((key101 >> 1) & 0x01); 
+	for(i=7;i>=6;i--)
+	{
+		b1.bit = ( (key100 >> (i-1) ) & 0x01) ;
+		key_shifted0 |= ( b1.bit << i) ;
+	}
+	b1.bit=((key101 >> 0) & 0x01) ;
+	key_shifted1 |= ( b1.bit << 1);
+	key_shifted1 |= (b.bit << 0);
+	key_shifted0 |= (msb.bit << 5);
+	key_shifted[0]=key_shifted0;
+	key_shifted[1]=key_shifted1;
+	return key_shifted;
+}
+unsigned char *P8(unsigned char *key10,unsigned char *key8)
+{
+	unsigned char key10s[2];
+	LS(key10,key10s);
+	int i;
+	printf("shifted key: %d%d",( (key10s[1] >> 1 ) & 0x01),( (key10s[1] >> 0) & 0x01));
+        for(i=0;i<8;i++) printf("%d",( (key10s[0] >> (7-i)) & 0x01));
+	printf("\n");
+	int p8[]={5,2,6,3,7,4,9,8};
+	
 }
 int main(int argc,char *argv[])
 {
@@ -125,8 +173,10 @@ int main(int argc,char *argv[])
 		return 3;
 	}
 	hash(pwd,key);
-	unsigned char key10[2];
+	unsigned char key10[2],subkey1[2],subkey2[2];
 	P10(key,key10);
+	P8(key10,subkey1);
+	P8(key10,subkey2);
 	int i,j;
 	unsigned char buff;
 	fseek(infd,0,SEEK_END);

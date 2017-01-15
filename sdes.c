@@ -69,7 +69,7 @@ void P10(unsigned char keyin[2],unsigned char keyout[2])
 	bit b,b1;
 	unsigned char keyin0=keyin[0],keyin1=keyin[1];
 	unsigned char keyout0=0,keyout1=0;
-	printf("Hashed key:\n\t");
+	printf("Hashed key: ");
 	for(i=0;i<10;i++) 
 	{
 		if(p10[i]<8)    b1.bit = ( ( keyin0 >> p10[i]   ) & 0x01 );
@@ -86,7 +86,7 @@ void P10(unsigned char keyin[2],unsigned char keyout[2])
 			b.bit=( (keyin1 >> (i%8) ) & 0x01);
 			keyout1 |= ( b1.bit << (i%8) );
 		}
-		printf("%d -> %d\n\t",b.bit,b1.bit);
+		printf("%d",b.bit);//printf("%d -> %d\n\t",b.bit,b1.bit);
 	}
 	printf("\nP10:");
 	b.bit = (keyout1 >> 0  ) & 0x01;
@@ -94,6 +94,7 @@ void P10(unsigned char keyin[2],unsigned char keyout[2])
 	printf("%d%d",b1.bit,b.bit);
 	for(i=7;i>=0;i--)
 	{
+		if(i==4) printf(" ");
 		b.bit= ( (keyout0 >> i) & 0x01) ;
 		printf("%d",b.bit);
 	}
@@ -131,16 +132,21 @@ unsigned char *LS(unsigned char key10[2],unsigned char key_shifted[2])
 	key_shifted[1]=key_shifted1;
 	return key_shifted;
 }
-unsigned char *P8(unsigned char *key10,unsigned char *key8)
+unsigned char P8(unsigned char key10[2],unsigned char *key8)
 {
-	unsigned char key10s[2];
-	LS(key10,key10s);
-	int i;
-	printf("shifted key: %d%d",( (key10s[1] >> 1 ) & 0x01),( (key10s[1] >> 0) & 0x01));
-        for(i=0;i<8;i++) printf("%d",( (key10s[0] >> (7-i)) & 0x01));
-	printf("\n");
 	int p8[]={5,2,6,3,7,4,9,8};
-	
+	int i;
+	bit b;
+	printf("P8: ");
+	for(i=0;i<8;i++)
+	{
+		if(p8[i]<8)	b.bit=(key10[0] >> p8[i]) & 0x01;
+		else		b.bit=(key10[1] >> (p8[i]%8) ) & 0x01;
+		*key8 |= (b.bit << i);
+	}
+	for(i=0;i<8;i++) printf("%d",(*key8 >> (7-i) & 0x01 ));
+	printf("\n");
+	return *key8;	
 }
 int main(int argc,char *argv[])
 {
@@ -173,11 +179,28 @@ int main(int argc,char *argv[])
 		return 3;
 	}
 	hash(pwd,key);
-	unsigned char key10[2],subkey1[2],subkey2[2];
+	unsigned char key10[2],subkey1=0,subkey2=0;
 	P10(key,key10);
-	P8(key10,subkey1);
-	P8(key10,subkey2);
+	unsigned char key10s[2],key10ss[2];
+	LS(key10,key10s);
 	int i,j;
+	printf("shifted key: %d%d",( (key10s[1] >> 1 ) & 0x01),( (key10s[1] >> 0) & 0x01));
+        for(i=0;i<8;i++) 
+	{
+		if(i==3) printf(" ");
+		printf("%d",( (key10s[0] >> (7-i)) & 0x01));
+	}
+	printf("\n");
+	P8(key10s,&subkey1);
+	LS(key10s,key10ss);
+	printf("shifted key: %d%d",( (key10ss[1] >> 1 ) & 0x01),( (key10ss[1] >> 0) & 0x01));
+        for(i=0;i<8;i++) 
+	{
+		if(i==3) printf(" ");
+		printf("%d",( (key10ss[0] >> (7-i)) & 0x01));
+	}
+	printf("\n");
+	P8(key10ss,&subkey2);
 	unsigned char buff;
 	fseek(infd,0,SEEK_END);
 	long size=ftell(infd);

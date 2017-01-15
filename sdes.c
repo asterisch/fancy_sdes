@@ -7,19 +7,19 @@ unsigned char *hash(unsigned char *str,unsigned char *key)
 {
         unsigned long hash = 5381;
         int c;
-	int sel[]={ 21,18,27,30,4,24,14,7,0,10} // unsgn long is 4bytes -> select 10bits as the hashed_key
+	int sel[]={ 21,18,27,30,4,24,14,7,0,10}; // unsgn long is 4bytes -> select 10bits as the hashed_key
         while (c = *str++)
             hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 	bit b;
 	for(c=0;c<10;c++)
 	{
-		b.bit = ( hash >> sel[i] ) & 0x01;
+		b.bit = ( hash >> sel[c] ) & 0x01;
 		if (c<8)
-			key[0] |= ( b.bit << i );
+			key[0] |= ( b.bit << c );
 		else
-			key[1] |= ( b.bit << (i%8) );
+			key[1] |= ( b.bit << (c%8) );
 	}
-        return hkey;
+        return key;
 }
 unsigned char IP(unsigned char in) // Initial Permutation
 {
@@ -62,12 +62,11 @@ unsigned char IP_1(unsigned char in)
 	return out;
 	
 }
-void P10(unsigned char *password,unsigned char *keyout)
+void P10(unsigned char *keyin,unsigned char *keyout)
 {
 	int p10[]={2,4,1,6,3,9,0,8,7,5};
 	int i;
 	bit b;
-	unsigned char hash_pwd = hash(password);
 	for(i=0;i<10;i++)
 	{
 		if(p10[i]<8)
@@ -84,11 +83,16 @@ void P10(unsigned char *password,unsigned char *keyout)
 		}
 		else
 		{
-			keyout[1] |= (b.bit << i);
+			keyout[1] |= (b.bit << i%8);
 		}
 	}
-	printf("key: %c%d%d\n",keyin[0], ((keyin[1] >> 0) & 0x01) , ((keyin[1] >> 1) & 0x01) );
-	printf("key: %c%d%d\n",keyout[0], ((keyout[1] >> 0) & 0x01) , ((keyout[1] >> 1) & 0x01) );
+	printf("Hashed key: ");
+	printf("%d%d",( (keyin[1] >> 1 ) & 0x01),( (keyin[1] >> 0) & 0x01));
+	for(i=0;i<8;i++) printf("%d",( (keyin[0] >> (7-i)) & 0x01));
+	printf("\nP10key: ");
+	printf("%d%d",( (keyout[1] >> 1 ) & 0x01),( (keyout[1] >> 0) & 0x01));
+	for(i=0;i<8;i++) printf("%d",( (keyout[0] >> (7-i)) & 0x01));
+	printf("\n");
 }
 int main(int argc,char *argv[])
 {
@@ -121,7 +125,7 @@ int main(int argc,char *argv[])
 		return 3;
 	}
 	hash(pwd,key);
-	unsigned char key10;
+	unsigned char key10[2];
 	P10(key,key10);
 	int i,j;
 	unsigned char buff;

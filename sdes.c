@@ -32,15 +32,7 @@ unsigned char IP(unsigned char in) // Initial Permutation
 	{
 		b.bit = (in >> init_perm[i]) & 0x01;
 		out |= ( b.bit  << i );
-		//printf("%d", ( (in >> 7-i) & 0x01) ); // print reversed in
 	}
-	/*printf(" -> ");
-	for(i=7;i>=0;i--)
-	{
-		printf("%d", ( (out >> i) & 0x01) ); // print reversed out
-	}
-	printf(" IP: %d -> %d ",in,out);
-	printf("\n");*/
 	return out;
 }
 unsigned char IP_1(unsigned char in)
@@ -53,15 +45,7 @@ unsigned char IP_1(unsigned char in)
 	{
 		b.bit = (in >> rev_init_perm[i]) & 0x01;
 		out |= ( b.bit  << i );
-		//printf("%d", ((in >> 7-i) & 0x01)); // print reversed in
 	}
-	/*printf(" -> ");
-	for(i=7;i>=0;i--)
-	{
-		printf("%d", ((out >> i) & 0x01));// print reversed out
-	}
-	printf(" IP-1: %d -> %d ",in,out);
-	printf("\n");*/
 	return out;
 	
 }
@@ -154,9 +138,9 @@ unsigned char P8(unsigned char key10[2],unsigned char *key8)
 int welcome(int argc,char *argv[],FILE *infd,FILE *outfd)
 {
 
-	if(argc > 4 || argc < 3 )
+	if(argc !=4 )
 	{
-		printf("Usage %s infile outfile \n",argv[0]);
+		printf("Usage %s infile X outfile \nX:\n\t-e:\t for encrypt\n\t-d:\t for decrypt\n\n",argv[0]);
 		return 1;
 	}
 	if(infd == NULL)
@@ -171,8 +155,12 @@ int welcome(int argc,char *argv[],FILE *infd,FILE *outfd)
 	if(outfd == NULL)
 	{
 		fclose(infd);
-		printf("Failed to create file: %s\n",argv[2]);
+		printf("Failed to create file: %s\n",argv[3]);
 		return 1;	
+	}
+	if(strncmp(argv[2],"-e",2) || strncmp(argv[2],"-d",2))
+	{
+		printf("Invalid option %s!\n",argv[2]);
 	}
 	return 0;
 }
@@ -225,39 +213,28 @@ unsigned char F(unsigned char R,unsigned char skey)
 	// S-Box 0
 	// sbox0[row0row1][col0col1]
 	row=0; // reset bits to 0
-	//row0= (xored & (1 << 0)) >> 0;
-	//row1= (xored >> 3) & 0x01;
 	row |= ( (xored & (1 << 0)) >> 0) << 1 ;
 	row |= ( (xored & (1 << 3)) >> 3) << 0 ;
 	col=0;
-	//col0 = (xored >> 1) & 0x01;
-	//col1 = (xored >> 2) & 0x01;
 	col |= ( (xored & (1 << 1)) >> 1) << 1 ;
 	col |= ( (xored & (1 << 2)) >> 2) << 0 ;
-//	bits4 |= ( sbox0[row,col] >> 2) & 0x02 ; //set first 2 bits of bits4;
 	bits4 |= ( (sbox0[row][col] & (1 << 1)) >> 1) << 1;
 	bits4 |= ( (sbox0[row][col] & (1 << 0)) >> 0) << 0;
 	// S-Box 1
 	row=0;
-	//row0= (xored >> 4) & 0x01;
-	//row1= (xored >> 7) & 0x01;
 	row |= ( (xored & (1 << 4)) >> 4) << 1 ;
         row |= ( (xored & (1 << 7)) >> 7) << 0 ;
 	col=0;
-	//col0= (xored >> 5) & 0x01;
-	//col1= (xored >> 6) & 0x01;
 	col |= ( (xored & (1 << 5)) >> 5) << 1 ;
         col |= ( (xored & (1 << 6)) >> 6) << 0 ;
 	bits4 |= (( sbox1[row][col] & (1 << 1)) >> 1) << 3 ; 
 	bits4 |= (( sbox1[row][col] & (1 << 0)) >> 0) << 2 ;
-	printf("bits4: %d\n",bits4);
 	unsigned char out=0;
 	int p4[]={2,4,3,1};
 	for (i=0;i<4;i++)
 	{
 		out |= ( ( bits4  >> p4[i]) & 0x01 ) << i;
 	}
-	printf("out: %d\n",out);	
 	return out;
 }
 void split(unsigned char buff,unsigned char *L,unsigned char *R)
@@ -270,8 +247,6 @@ void split(unsigned char buff,unsigned char *L,unsigned char *R)
 		*R |= (( buff >> i) & 0x01) << i;
 		*L |= (( buff >> i+4) & 0x01) << i;
 	}
-	//*L=l;*R=r;
-	printf("L: %d R:%d\n",*L,*R);
 }
 unsigned char join(unsigned char left,unsigned char right)
 {
@@ -283,37 +258,15 @@ unsigned char join(unsigned char left,unsigned char right)
                 joined |= (( right >> i) & 0x01) << (i+4);
         }
 	return joined;
-	//printf("joined: %c\n",joined);
 
 }
-int main(int argc,char *argv[])
+void encrypt(FILE *infd,FILE *outfd,long size,unsigned char subkey1,unsigned char subkey2)
 {
-	
-	FILE *infd=fopen(argv[1],"rb");
-	FILE *outfd=fopen(argv[2],"wb");
-	if( welcome(argc,argv,infd,outfd) ) return 1;
-	unsigned char pwd[30]; // 30 char max password and 8-bit key (declaration)
-	unsigned char subkey1=0,subkey2=0; // 10-bit key, 2 8-bit subkeys
-	printf("Password: ");
-	if( fgets(pwd,30,stdin) == NULL)
-	{
-		printf("Bad password given\n");
-		return 3;
-	}
-	produce_subkeys(pwd,&subkey1,&subkey2);
-	printf("skey1:%d skey2:%d\n",subkey1,subkey2);
-	unsigned char buff;
-	fseek(infd,0,SEEK_END);
-	long size=ftell(infd);
-	printf("size: %ld\n",size);
-	fseek(infd,SEEK_SET,0);
+	unsigned char left=0,right=0,temp=0,iped=0,buff;
 	int j;
-if(argc==4){
-	unsigned char left=0,right=0,temp=0,iped=0;
 	fread(&buff,1,1,infd);
 	iped=IP(buff);
 	split(iped,&left,&right);
-	//printf("l: %d r: %d\n",left,right);
 	for(j=0;j<size-1;j++)
 	{		
 		temp=F(right,subkey1) ^ left; // alter first 4-bits starting from LSB
@@ -337,17 +290,16 @@ if(argc==4){
 	joined=join(left,right);
 	unsigned char data=0;
 	data=IP_1(joined);
-//	printf("%c",data);
 	fwrite(&data,1,1,outfd);
 	printf("\n");
 }
-else
+void decrypt(FILE *infd,FILE *outfd,long size,unsigned char subkey1,unsigned char subkey2)
 {
-	unsigned char left=0,right=0,temp=0,iped=0;
+	unsigned char left=0,right=0,temp=0,iped=0,buff;
+	int j;
         fread(&buff,1,1,infd);
 	iped=IP(buff);
         split(iped,&left,&right);
-        //printf("l: %d r: %d\n",left,right);
         for(j=0;j<size-1;j++)
         {
                 temp=F(right,subkey2) ^ left; // alter first 4-bits starting from LSB
@@ -372,11 +324,45 @@ else
 	joined=join(left,right);
         unsigned char data=0;
 	data=IP_1(joined);
-//      printf("%c",data);
         fwrite(&data,1,1,outfd);
         printf("\n");
-	printf("bye!\n");
 }
+int main(int argc,char *argv[])
+{
+	
+	FILE *infd=fopen(argv[1],"rb");
+	FILE *outfd=fopen(argv[3],"wb");
+	if( welcome(argc,argv,infd,outfd) ) return 1;
+	unsigned char pwd[30]; // 30 char max password and 8-bit key (declaration)
+	unsigned char subkey1=0,subkey2=0; // 10-bit key, 2 8-bit subkeys
+	printf("Password: ");
+	if( fgets(pwd,30,stdin) == NULL)
+	{
+		printf("Bad password given\n");
+		return 3;
+	}
+	produce_subkeys(pwd,&subkey1,&subkey2);
+	printf("skey1:%d skey2:%d\n",subkey1,subkey2);
+	fseek(infd,0,SEEK_END);
+	long size=ftell(infd);
+	printf("size: %ld\n",size);
+	fseek(infd,SEEK_SET,0);
+	int j;
+	if(strncmp(argv[2],"-e",2))
+	{
+		encrypt(infd,outfd,size,subkey1,subkey2);
+	}
+	else
+	{
+		if(strncmp(argv[2],"-d",2))
+		{
+			decrypt(infd,outfd,size,subkey1,subkey2);	
+		}
+		else
+		{
+			printf("Nothing to do..\nExiting..\n");
+		}
+	}
 	fclose(infd);
 	fclose(outfd);	
 	return 0;

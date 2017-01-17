@@ -84,7 +84,7 @@ void P10(unsigned char keyin[2],unsigned char keyout[2])
 	int i;
 	bit b,b1;
 	keyout[0]=0,keyout[1]=0; // Reset bits
-	printf("Hashed key:\t");
+	printf("Hashed key: ");
 	for(i=0;i<10;i++) 
 	{
 		if(p10[i]<8)    b1.bit = ( ( keyin[0] >> p10[i]   ) & 0x01 );
@@ -103,7 +103,7 @@ void P10(unsigned char keyin[2],unsigned char keyout[2])
 		}
 		printf("%d",b.bit);
 	}
-	printf("\nP10:\t");
+	printf("\nP10: ");
 	b.bit = (keyout[1] >> 0  ) & 0x01;
 	b1.bit = (keyout[1] >> 1) & 0x01;
 	printf("%d%d",b1.bit,b.bit);
@@ -193,7 +193,7 @@ void produce_subkeys(unsigned char *pwd,unsigned char *subkey1,unsigned char *su
 	// Produce subkey 1
 	LS(key10,key10s); 			// Left-Shift 10-bit key
 	int i,j; 
-	printf("P10 key shifted:\t\t %d%d",( (key10s[1] >> 1 ) & 0x01),( (key10s[1] >> 0) & 0x01)); // Print shifted key
+	printf("P10 key shifted: %d%d",( (key10s[1] >> 1 ) & 0x01),( (key10s[1] >> 0) & 0x01)); // Print shifted key
         for(i=0;i<8;i++) 
 	{
 		if(i==3) printf(" ");
@@ -204,7 +204,7 @@ void produce_subkeys(unsigned char *pwd,unsigned char *subkey1,unsigned char *su
 
 	// Produce subkey 2
 	LS(key10s,key10ss); 			// Left-Shift 10-bit key once more
-	printf("P10 key shifted:\t\t %d%d",( (key10ss[1] >> 1 ) & 0x01),( (key10ss[1] >> 0) & 0x01)); // Printf shifted key
+	printf("P10 key shifted: %d%d",( (key10ss[1] >> 1 ) & 0x01),( (key10ss[1] >> 0) & 0x01)); // Printf shifted key
         for(i=0;i<8;i++) 
 	{
 		if(i==3) printf(" ");
@@ -373,7 +373,7 @@ void encrypt(FILE *infd,FILE *outfd,long size,unsigned char subkey1,unsigned cha
 		fwrite(&data,1,1,outfd);
 		fread(&buff,1,1,infd);
 		iped=0;	iped=IP(buff);
-		split(iped,&left,&right);//printf("l: %d r: %d\n",left,right);
+		split(iped,&left,&right);
 	}
 	temp=F(right,subkey1) ^ left; // alter first 4-bits starting from LSB	
 	left=temp;
@@ -414,7 +414,7 @@ void decrypt(FILE *infd,FILE *outfd,long size,unsigned char subkey1,unsigned cha
                 fwrite(&data,1,1,outfd);
                 fread(&buff,1,1,infd);
                 iped=0; iped=IP(buff);
-                split(iped,&left,&right);//printf("l: %d r: %d\n",left,right);
+                split(iped,&left,&right);
 
         }
         temp=F(right,subkey2) ^ left; // alter first 4-bits starting from LSB   
@@ -446,7 +446,7 @@ int main(int argc,char *argv[])
 		return 3;
 	}
 	produce_subkeys(pwd,&subkey1,&subkey2);
-	printf("skey1:%d skey2:%d\n",subkey1,subkey2);
+	printf("skey1: %d skey2: %d\n",subkey1,subkey2);
 	fseek(infd,0,SEEK_END);
 	long size=ftell(infd);
 	printf("size: %ld\n",size);

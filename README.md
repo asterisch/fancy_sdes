@@ -1,2 +1,2 @@
 # fancy_sdes
-A fancy implementation of the SDES (kiddo) crypto algorithm in C.
+A fancy implementation of the SDES crypto algorithm in C.
